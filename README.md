@@ -20,6 +20,7 @@ specification](http://www.typescriptlang.org/Content/TypeScript%20Language%20Spe
 
 * Non-obvious benefits of typescript:
     * Sanity while refactoring: with its strong typing, javascript actually becomes *easy* to modify.
+    * Enums are great, but they really have me wanting algebraic data types.
     * Better code organization: using interfaces as much as possible leads to more decoupled OOP.
     * Constructor property assignment removes silly boilerplate
 * Type annotations are optional; I wish you could make them mandatory with a compiler flag.
