@@ -13,18 +13,20 @@ env = Environment(env=os.environ, BUILDERS={
     )
 })
 
-sources = [
-    'src/Helpers.ts',
-    'src/KeyboardDelegate.ts',
-    'src/Constants.ts',
-    'src/GameAudio.ts',
-    'src/GameObject.ts',
-    'src/Physics.ts',
-    'src/Score.ts',
-    'src/Ball.ts',
-    'src/Paddle.ts',
-    'src/Pong.ts',
-]
+tsSources= [ os.path.join('src', source) for source in [
+    'Helpers.ts',
+    'KeyboardDelegate.ts',
+    'Constants.ts',
+    'GameAudio.ts',
+    'GameObject.ts',
+    'Physics.ts',
+    'Score.ts',
+    'Ball.ts',
+    'Paddle.ts',
+    'Pong.ts',
+] ]
 
-env.Typescript(sources)
-env.Combine('out/pong.min.js', [ source.split('.ts', 1)[0] + '.js' for source in sources ])
+jsIntermediates = [ source.split('.ts', 1)[0] + '.js' for source in tsSources ]
+
+env.Typescript(tsSources)
+env.Combine(os.path.join('out', 'pong.min.js'), jsIntermediates)
