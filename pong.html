@@ -1,0 +1,30 @@
+<!doctype html>
+<style>
+#pong {
+    background-color: black;
+}
+.paddle {
+    background-color: white;
+    border-radius: 4px;
+}
+.ball {
+    background-color: white;
+    border-radius: 4px;
+}
+.score {
+    font-size: 80px;
+    font-family: "Monaco", monospace;
+    position: absolute;
+    color: white;
+    top: 0;
+}
+.score.cpu {
+    right: 50px;
+}
+.score.player {
+    left: 50px;
+}
+</style>
+<h1>Pong</h1>
+<div id="pong"></div>
+<script src="Pong.js"></script>
