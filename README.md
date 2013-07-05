@@ -3,6 +3,8 @@ Typescript Pong
 
 An implementation of Pong written in TypeScript. 
 
+Try it out here: [http://sufianrhazi.github.io/typescript-pong](http://sufianrhazi.github.io/typescript-pong)
+
 
 Dependencies
 ------------
