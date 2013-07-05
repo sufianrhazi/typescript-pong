@@ -1,0 +1,32 @@
+#pong {
+    background-color: black;
+}
+.paddle {
+    background-color: white;
+    border-radius: 4px;
+}
+.start {
+    position: absolute;
+    top: 25%;
+    font-size: 80px;
+    color: white;
+    font-family: Monaco, "monospace";
+    text-align: center;
+}
+.ball {
+    background-color: white;
+    border-radius: 4px;
+}
+.score {
+    font-size: 80px;
+    font-family: "Monaco", monospace;
+    position: absolute;
+    color: white;
+    top: 0;
+}
+.score.cpu {
+    right: 50px;
+}
+.score.player {
+    left: 50px;
+}
