@@ -1,15 +1,42 @@
-function startLoop(loop: (number) => void): void {
-    var time: Date = new Date();
+/*
+ * Helper Functions 
+ * ================
+ *
+ * ### startLoop: (loop: (timeDelta: number) => void) => () => void
+ * 
+ * Calls the `loop` function every frame with `timeDelta` equal to the number of seconds that have passed since the last frame.
+ * 
+ * Returns a function that, when called, stops the loop.
+ */
+function startLoop(loop: (timeDelta: number) => void): () => void {
+    var lastFrame: Date = null;
+    var handle: number = null;
+
     function nextFrame() {
         var now: Date = new Date();
-        var timeDelta: number = (now.getTime() - time.getTime()) / 1000;
-        time = now;
+        var timeDelta: number;
+        if (lastFrame == null) {
+            timeDelta = 0;
+        } else {
+            timeDelta = (now.getTime() - lastFrame.getTime()) / 1000;
+        }
+        lastFrame = now;
         loop(timeDelta);
-        requestAnimationFrame(nextFrame);
+        handle = requestAnimationFrame(nextFrame);
     }
-    requestAnimationFrame(nextFrame);
+    handle = requestAnimationFrame(nextFrame);
+
+    function stopLoop(): void {
+        cancelAnimationFrame(handle);
+    }
+    return stopLoop;
 }
 
+/*
+ * ### createDiv: (container: HTMLElement, className: string) => HTMLDivElement
+ * 
+ * Create a new `<div>` element that has class=`className` and is a child of `contiainer`.
+ */
 function createDiv(container: HTMLElement, className: string): HTMLDivElement {
     var el = document.createElement('div');
     el.className = className;
@@ -17,41 +44,107 @@ function createDiv(container: HTMLElement, className: string): HTMLDivElement {
     return el;
 }
 
+
+/*
+ * Constants
+ * =========
+ */
 var WIDTH = 640;
 var HEIGHT = 480;
 var PADDLE_OFFSET = 16;
 
+
+/*
+ * Keyboard Handling
+ * =================
+ */
+
+interface KeyboardHandler {
+    onKeyDown: (keyCode: number) => void;
+    onKeyUp: (keyCode: number) => void;
+}
+
+class KeyboardDelegate {
+    private handlers: Array<KeyboardHandler> = [];
+
+    constructor() {
+        document.addEventListener('keydown', (event: KeyboardEvent) => {
+            this.handlers.forEach((handler) => handler.onKeyDown(event.keyCode));
+        });
+        document.addEventListener('keyup', (event: KeyboardEvent) => {
+            this.handlers.forEach((handler) => handler.onKeyUp(event.keyCode));
+        });
+    }
+
+    public addHandler(handler: KeyboardHandler) {
+        this.handlers.push(handler);
+    }
+}
+
+
+/*
+ * Physics
+ * =======
+ */
 class Vector2 {
-    constructor(public x: number, public y: number) {}
+    constructor(
+        public x: number,
+        public y: number
+    ) {}
+
     public add(v: Vector2): Vector2 {
         return new Vector2(this.x + v.x, this.y + v.y);
     }
+
     public difference(v: Vector2): Vector2 {
         return new Vector2(this.x - v.x, this.y - v.y);
     }
+
     public scale(n: number): Vector2 {
         return new Vector2(this.x * n, this.y * n);
     }
+
+    public amplitude(): number {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+
     public static reflectX(point: Vector2, x: number) {
         return new Vector2(2 * x - point.x, point.y);
     }
+
     public static reflectY(point: Vector2, y: number) {
         return new Vector2(point.x, 2 * y - point.y);
     }
 }
 
-interface Obstruction {
+interface PhysicalObject {
     position: Vector2;
     width: number;
     height: number;
 }
-function isInside(obstruction: Obstruction, point: Vector2): boolean {
+
+function isInside(obstruction: PhysicalObject, point: Vector2): boolean {
     var difference = obstruction.position.difference(point);
     return Math.abs(difference.x) < obstruction.width/2 && Math.abs(difference.y) < obstruction.height/2;
 }
-function isOverlap(o1: Obstruction, o2: Obstruction): boolean {
+function isOverlap(o1: PhysicalObject, o2: PhysicalObject): boolean {
     var difference = o1.position.difference(o2.position);
     return Math.abs(difference.x) < o1.width/2 + o2.width/2 && Math.abs(difference.y) < o1.height/2 + o2.height/2;
+}
+
+
+/*
+ * Game Objects
+ * ============
+ *
+ * interface GameObject
+ * --------------------
+ *
+ * A unit in the game that is updated every frame
+ *
+ */
+interface GameObject {
+    update(timeSinceLastFrame: number): void;
 }
 
 enum PlayerSide {
@@ -64,11 +157,18 @@ enum PaddleState {
     MovingDown
 }
 
-interface GameObject {
-    update(timeSinceLastFrame: number): void;
-}
-
-class Paddle implements GameObject, Obstruction {
+/*
+ * class Paddle
+ * ------------
+ * 
+ * Abstracts the Player and CPU paddles
+ *
+ * * stays within the arena 
+ * * moves along the y axis
+ * * if following a Ball, poorly follows the ball
+ *
+ */
+class Paddle implements GameObject, PhysicalObject {
     public position: Vector2;
     public width: number = 8;
     public height: number = 64;
@@ -76,44 +176,16 @@ class Paddle implements GameObject, Obstruction {
     private target: Ball = null;
 
     private state: PaddleState = PaddleState.Stationary;
-    goUp(): void {
-        this.state = PaddleState.MovingUp;
-    }
-    goDown(): void {
-        this.state = PaddleState.MovingDown;
-    }
-    releaseUp(): void {
-        if (this.state == PaddleState.MovingUp) {
-            this.state = PaddleState.Stationary;
-        }
-    }
-    releaseDown(): void {
-        if (this.state == PaddleState.MovingDown) {
-            this.state = PaddleState.Stationary;
-        }
-    }
-    stop(): void {
-        this.state = PaddleState.Stationary;
-    }
 
-    follow(ball: Ball): void {
-        this.following = true;
-        this.target = ball;
-    }
-
-    constructor(private element: HTMLDivElement, private side: PlayerSide) {
+    constructor(
+        private element: HTMLDivElement,
+        private side: PlayerSide
+    ) {
         this.element.style.position = 'absolute';
         this.element.style.width = this.width + 'px';
         this.element.style.height = this.height + 'px';
 
-        this.element.style.position = 'absolute';
-
         this.reset();
-    }
-
-    public reset(): void {
-        this.setPosition(new Vector2(this.side == PlayerSide.Left ? PADDLE_OFFSET : WIDTH - PADDLE_OFFSET, HEIGHT / 2));
-        this.state = PaddleState.Stationary;
     }
 
     private setPosition(newPosition: Vector2): void {
@@ -127,18 +199,67 @@ class Paddle implements GameObject, Obstruction {
         this.element.style.left = Math.round(this.position.x - this.width / 2) + 'px';
     }
 
-    public update(timeDelta: number): void {
-        if (this.following) {
-            if (   (this.target.position.x < this.position.x && this.target.velocity.x > 0)
-                || (this.target.position.x > this.position.x && this.target.velocity.x < 0)) {
-                if (this.target.position.y < this.position.y - this.height / 2) {
+    public reset(): void {
+        this.setPosition(new Vector2(this.side == PlayerSide.Left ? PADDLE_OFFSET : WIDTH - PADDLE_OFFSET, HEIGHT / 2));
+        this.state = PaddleState.Stationary;
+    }
+
+    /*
+     * ### Movement controls
+     */
+    public goUp(): void {
+        this.state = PaddleState.MovingUp;
+    }
+    public goDown(): void {
+        this.state = PaddleState.MovingDown;
+    }
+    public releaseUp(): void {
+        if (this.state == PaddleState.MovingUp) {
+            this.state = PaddleState.Stationary;
+        }
+    }
+    public releaseDown(): void {
+        if (this.state == PaddleState.MovingDown) {
+            this.state = PaddleState.Stationary;
+        }
+    }
+    public stop(): void {
+        this.state = PaddleState.Stationary;
+    }
+
+    /*
+     * ### AI functions
+     */
+    public follow(ball: Ball): void {
+        this.following = true;
+        this.target = ball;
+    }
+
+    private updateAI(): void {
+        if (   (this.target.position.x < this.position.x && this.target.velocity.x > 0)
+            || (this.target.position.x > this.position.x && this.target.velocity.x < 0)) {
+            // heading toward us
+            if (Math.abs(this.target.position.y - this.position.y) < this.height / 4) {
+                // close enough to target
+                this.stop();
+            } else if (this.state == PaddleState.Stationary) {
+                if (this.position.y > this.target.position.y) {
                     this.goUp();
-                } else if (this.target.position.y > this.position.y + this.height / 2) {
+                } else {
                     this.goDown();
-                } else if (this.state != PaddleState.Stationary && Math.abs(this.target.position.y - this.position.y) < this.height / 4) {
-                    this.stop();
                 }
             }
+        } else {
+            this.stop();
+        }
+    }
+
+    /*
+     * ### Update step
+     */
+    public update(timeDelta: number): void {
+        if (this.following) {
+            this.updateAI();
         }
 
         var dy = 0;
@@ -151,49 +272,74 @@ class Paddle implements GameObject, Obstruction {
     }
 }
 
-class Ball implements GameObject, Obstruction {
+/*
+ * class Ball
+ * ------------
+ * 
+ * * reflects off arena top/bottom
+ * * reflects off obstructions
+ * * triggers onCollide when collides with anything
+ * * triggers onOut when leaves the arena
+ *
+ */
+class Ball implements GameObject, PhysicalObject {
     public position: Vector2;
     public velocity: Vector2;
     public width: number = 4;
     public height: number = 4;
-    private onOutHandler: () => void;
-    private onCollideHandler: () => void;
 
-    constructor(private element: HTMLDivElement, private obstructions: Array<Obstruction>) {
+    constructor(
+        private element: HTMLDivElement,
+        private obstructions: Array<PhysicalObject>,
+        private onOut: () => void,
+        private onCollide: () => void
+    ) {
         this.element.style.position = 'absolute';
         this.element.style.width = this.width + 'px';
         this.element.style.height = this.height + 'px';
 
+        this.reset();
+    }
+
+    public reset(): void {
         this.position = new Vector2(WIDTH / 2, HEIGHT / 2);
         this.velocity = new Vector2(0, 0);
     }
 
-    private updateElement(): void {
+    public launch(): void {
+        var angle = (Math.random() * Math.PI/2) - Math.PI/4;
+        var amplitude = 250;
+        this.velocity = new Vector2(
+            (Math.random() > 0.5 ? 1 : -1) * Math.cos(angle) * amplitude,
+            Math.sin(angle) * amplitude
+        );
+    }
+
+    private setPosition(position: Vector2): void {
+        this.position = position;
         this.element.style.left = Math.round(this.position.x) + 'px';
         this.element.style.top = Math.round(this.position.y) + 'px';
     }
 
-    private setVelocity(dx: number, dy: number): void {
-        this.velocity.x = dx;
-        this.velocity.y = dx;
-    }
-
     public update(timeDelta: number): void {
         var nextPosition = this.position.add(this.velocity.scale(timeDelta));
+        var verticalHit = (reflectY: number): void => {
+        };
 
-        // Arena out-of-bounds
         if (this.velocity.y < 0 && nextPosition.y - this.height/2 < 0) {
+            // reflected off top
             nextPosition = Vector2.reflectY(nextPosition, 0);
             this.velocity.y = -this.velocity.y;
-            this.onCollideHandler();
+            this.onCollide();
         }
-        if (this.velocity.y > 0 && nextPosition.y + this.height/2 >= HEIGHT) {
-            nextPosition = Vector2.reflectY(nextPosition, HEIGHT);
+        if (this.velocity.y > 0 && nextPosition.y + this.height/2 > HEIGHT - 1) {
+            // reflected off bottom
+            nextPosition = Vector2.reflectY(nextPosition, HEIGHT - 1);
             this.velocity.y = -this.velocity.y;
-            this.onCollideHandler();
+            this.onCollide();
         }
 
-        var nextObstruction: Obstruction = {
+        var nextObject: PhysicalObject = {
             position: nextPosition,
             width: this.width,
             height: this.height
@@ -201,61 +347,41 @@ class Ball implements GameObject, Obstruction {
 
         // Paddle hit
         this.obstructions.forEach((obstruction) => {
-            if (this.velocity.x < 0 && obstruction.position.x < this.position.x && isOverlap(obstruction, nextObstruction)) {
-                // The right side of the obstruction hit the left side of the ball
+            var isHit: boolean = isOverlap(obstruction, nextObject);
+            if (this.velocity.x < 0 && obstruction.position.x < this.position.x && isHit) {
+                // The right side of the obstruction hit the ball
                 nextPosition = Vector2.reflectX(nextPosition, obstruction.position.x + obstruction.width/2);
-                this.velocity.x = -this.velocity.x;
-                this.velocity = this.velocity.scale(1.1);
-                this.onCollideHandler();
+                var amplitude = this.velocity.amplitude() + 25;
+                var angle = Math.random() * Math.PI/2 - Math.PI/4;
+                this.velocity = new Vector2(Math.cos(angle) * amplitude, Math.sin(angle) * amplitude);
+                this.onCollide();
             }
-            if (this.velocity.x > 0 && obstruction.position.x > this.position.x && isOverlap(obstruction, nextObstruction)) {
-                // The left side of the obstruction hit the right side of the ball
+            if (this.velocity.x > 0 && obstruction.position.x > this.position.x && isHit) {
+                // The left side of the obstruction hit the ball
                 nextPosition = Vector2.reflectX(nextPosition, obstruction.position.x - obstruction.width/2);
-                this.velocity.x = -this.velocity.x;
-                this.velocity = this.velocity.scale(1.1);
-                this.onCollideHandler();
+                var amplitude = this.velocity.amplitude() + 25;
+                var angle = Math.PI + (Math.random() * Math.PI/2 - Math.PI/4);
+                this.velocity = new Vector2(Math.cos(angle) * amplitude, Math.sin(angle) * amplitude);
+                this.onCollide();
             }
         });
 
-        this.position = nextPosition;
-        this.updateElement();
+        this.setPosition(nextPosition);
 
         if (this.position.x < 0 || this.position.x >= WIDTH) {
-            this.onOutHandler();
+            this.onOut();
         }
     }
-
-    public reset(): void {
-        this.position.x = WIDTH / 2;
-        this.position.y = HEIGHT / 2;
-        this.velocity = new Vector2(0, 0);
-    }
-
-    public launch(): void {
-        var angle = (Math.random() * Math.PI/2) - Math.PI/4;
-        this.velocity.x = (Math.random() > 0.5 ? 1 : -1) * Math.cos(angle) * 250;
-        this.velocity.y = Math.sin(angle) * 250;
-    }
-
-    public onOut(func: () => void) {
-        this.onOutHandler = func;
-    }
-    public onCollide(func: () => void) {
-        this.onCollideHandler = func;
-    }
 }
 
-enum GameState {
-    Reset,
-    Ready,
-    Playing
-}
 
-interface KeyboardHandler {
-    onKeyDown: (keyCode: number) => void;
-    onKeyUp: (keyCode: number) => void;
-}
-
+/*
+ * class GameAudio
+ * ===============
+ *
+ * The sound effect manager
+ *
+ */
 class GameAudio {
     private audioContext: any; // AudioContext not declared
     private gain: any; // GainNode not declared
@@ -279,7 +405,7 @@ class GameAudio {
             this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
             this.oscillator.frequency.linearRampToValueAtTime(440, this.audioContext.currentTime + 0.10);
             this.oscillator.frequency.linearRampToValueAtTime(220, this.audioContext.currentTime + 0.35);
-            this.gain.gain.linearRampToValueAtTime(0.5, this.audioContext.currentTime + 0.10);
+            this.gain.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + 0.10);
             this.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.35);
         }
     }
@@ -287,10 +413,49 @@ class GameAudio {
     public playPing(): void {
         if (this.audioContext) {
             this.oscillator.frequency.setValueAtTime(220 + Math.random() * 660, this.audioContext.currentTime);
-            this.gain.gain.linearRampToValueAtTime(0.5, this.audioContext.currentTime + 0.10);
+            this.gain.gain.linearRampToValueAtTime(0.25, this.audioContext.currentTime + 0.10);
             this.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.20);
         }
     }
+}
+
+/*
+ * class Score
+ * ===========
+ *
+ * Holds and displays a player's score
+ *
+ */
+class Score {
+    private score: number = 0;
+    constructor(
+        private element: HTMLDivElement
+    ) {
+        this.updateElement();
+    }
+
+    public inc(): void {
+        this.score += 1;
+        this.updateElement();
+    }
+
+    private updateElement(): void {
+        while (this.element.childNodes.length > 0) {
+            this.element.removeChild(this.element.childNodes[0]);
+        }
+        this.element.appendChild(document.createTextNode(this.score.toString()));
+    }
+}
+
+/*
+ * The Game
+ * ========
+ *
+ */
+enum GameState {
+    Reset,
+    Ready,
+    Playing
 }
 
 class Game implements KeyboardHandler {
@@ -299,130 +464,87 @@ class Game implements KeyboardHandler {
     private player: Paddle;
     private cpu: Paddle;
     private ball: Ball;
-
-    private playerScore: number = 0;
-    private cpuScore: number = 0;
-
+    private playerScore: Score;
+    private cpuScore: Score;
     private audio: GameAudio;
+    private startEl: HTMLDivElement;
+    private objects: Array<GameObject>;
+    private stopRenderLoop: () => void = () => {};
 
-    private playerScoreEl: HTMLDivElement;
-    private cpuScoreEl: HTMLDivElement;
-
-    private objects: Array<GameObject> = [];
-
-    constructor(private container: HTMLDivElement) {
+    constructor(
+        private container: HTMLDivElement
+    ) {
         this.audio = new GameAudio();
 
         this.container.style.position = 'relative';
         this.container.style.width = WIDTH + 'px';
         this.container.style.height = HEIGHT + 'px';
 
-        this.playerScoreEl = createDiv(container, 'score player');
-        this.cpuScoreEl = createDiv(container, 'score cpu');
+        this.startEl = createDiv(container, 'start');
+        this.startEl.appendChild(document.createTextNode('Press Spacebar'));
 
-        this.updateScore();
+        this.playerScore = new Score(createDiv(container, 'score player'));
+        this.cpuScore = new Score(createDiv(container, 'score cpu'));
 
         this.player = new Paddle(createDiv(container, 'paddle'), PlayerSide.Left);
-        this.objects.push(this.player);
-
         this.cpu = new Paddle(createDiv(container, 'paddle'), PlayerSide.Right);
-        this.objects.push(this.cpu);
-
-        this.ball = new Ball(createDiv(container, 'ball'), [this.player, this.cpu]);
-        this.objects.push(this.ball);
-
-        this.ball.onOut(() => this.onBallOut());
-        this.ball.onCollide(() => this.audio.playPing());
-
+        this.ball = new Ball(createDiv(container, 'ball'), [this.player, this.cpu], this.onBallOut.bind(this), this.audio.playPing.bind(this.audio));
         this.cpu.follow(this.ball);
+
+        this.objects = [ this.player, this.cpu, this.ball ];
     }
 
-    public start(): void {
-        startLoop((timeDelta: number): void => {
+    public reset(): void {
+        this.stopRenderLoop();
+        this.ball.reset();
+        this.player.reset();
+        this.cpu.reset();
+        this.startEl.style.display = 'block';
+        this.state = GameState.Ready;
+    }
+
+    private startGame() {
+        this.stopRenderLoop = startLoop((timeDelta: number): void => {
             this.objects.forEach((go: GameObject) => {
                 go.update(timeDelta);
             });
         });
-        this.state = GameState.Ready;
+
+        this.startEl.style.display = 'none';
+        this.state = GameState.Playing;
+        this.ball.launch();
     }
 
     private onBallOut(): void {
         this.audio.playBallOut();
 
         if (this.ball.position.x < WIDTH / 2) {
-            this.cpuScore += 1;
+            this.cpuScore.inc();
         } else {
-            this.playerScore += 1;
+            this.playerScore.inc();
         }
-        this.updateScore();
-        this.ball.reset();
-        this.player.reset();
-        this.cpu.reset();
-        this.state = GameState.Ready;
-    }
-
-    private updateScore(): void {
-        var setText = (el: HTMLDivElement, score: number) => {
-            while (el.childNodes.length > 0) {
-                el.removeChild(el.childNodes[0]);
-            }
-            el.appendChild(document.createTextNode(score.toString()));
-        };
-        setText(this.playerScoreEl, this.playerScore);
-        setText(this.cpuScoreEl, this.cpuScore);
-    }
-
-    public onKeyUp(keyCode: number): void {
-        switch (this.state) {
-            case GameState.Playing:
-                if (keyCode == 38) {
-                    this.player.releaseUp();
-                }
-                if (keyCode == 40) {
-                    this.player.releaseDown();
-                }
-                break;
-        }
+        this.reset();
     }
 
     public onKeyDown(keyCode: number): void {
-        switch (this.state) {
-            case GameState.Playing:
-                if (keyCode == 38) {
-                    this.player.goUp();
-                }
-                if (keyCode == 40) {
-                    this.player.goDown();
-                }
-                break;
-            case GameState.Ready:
-                if (keyCode == 32) {
-                    this.state = GameState.Playing;
-                    this.ball.launch();
-                }
-                break;
+        if (this.state == GameState.Playing) {
+            if (keyCode == 38) this.player.goUp();
+            if (keyCode == 40) this.player.goDown();
+        }
+        if (this.state == GameState.Ready) {
+            if (keyCode == 32) this.startGame();
         }
     }
-}
 
-class KeyboardDelegate {
-    private handlers: Array<KeyboardHandler> = [];
-
-    constructor() {
-        document.addEventListener('keydown', (event: KeyboardEvent) => {
-            this.handlers.forEach((handler) => handler.onKeyDown(event.keyCode));
-        });
-        document.addEventListener('keyup', (event: KeyboardEvent) => {
-            this.handlers.forEach((handler) => handler.onKeyUp(event.keyCode));
-        });
-    }
-
-    public addHandler(handler: KeyboardHandler) {
-        this.handlers.push(handler);
+    public onKeyUp(keyCode: number): void {
+        if (this.state == GameState.Playing) {
+            if (keyCode == 38) this.player.releaseUp();
+            if (keyCode == 40) this.player.releaseDown();
+        }
     }
 }
 
 var keyboardDelegate = new KeyboardDelegate();
 var game: Game = new Game(<HTMLDivElement>document.getElementById('pong'));
 keyboardDelegate.addHandler(game);
-game.start();
+game.reset();
