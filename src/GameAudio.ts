@@ -1,3 +1,4 @@
+///<reference path="AudioContext.d.ts"/>
 /*
  * class GameAudio
  * ===============
@@ -6,13 +7,13 @@
  *
  */
 class GameAudio {
-    private audioContext: any; // AudioContext not declared
-    private gain: any; // GainNode not declared
-    private oscillator: any; // OscillatorNode not declared
+    private audioContext: AudioContext;
+    private gain: GainNode;
+    private oscillator: OscillatorNode;
 
     constructor() {
-        if ('webkitAudioContext' in window) {
-            this.audioContext = new (<any>window).webkitAudioContext();
+        if (window.AudioContext || window.webkitAudioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.gain = this.audioContext.createGainNode();
             this.oscillator = this.audioContext.createOscillator();
             this.gain.connect(this.audioContext.destination);

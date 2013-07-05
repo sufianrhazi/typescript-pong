@@ -9,6 +9,14 @@
  */
 function startLoop(loop: (timeDelta: number) => void): void {
     var lastFrame: Date = null;
+    var rAF: (func: () => void) => void;
+    if (window.requestAnimationFrame) {
+        rAF = window.requestAnimationFrame;
+    } else {
+        rAF = function (func: () => void) {
+            window.setTimeout(func, 0);
+        }
+    }
 
     function nextFrame() {
         var now: Date = new Date();
@@ -20,9 +28,9 @@ function startLoop(loop: (timeDelta: number) => void): void {
         }
         lastFrame = now;
         loop(timeDelta);
-        requestAnimationFrame(nextFrame);
+        rAF(nextFrame);
     }
-    requestAnimationFrame(nextFrame);
+    rAF(nextFrame);
 }
 
 /*
