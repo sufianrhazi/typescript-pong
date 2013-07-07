@@ -27,8 +27,9 @@ specification](http://www.typescriptlang.org/Content/TypeScript%20Language%20Spe
 * I don't have windows installed, but I had no problem writing typescript.
 * Developing in vim was okay. [syntastic](https://github.com/scrooloose/syntastic) has a typescript plugin which marks
   compiler errors correctly.  There isn't anything that appears to provide auto-complete.
-* The default declarations for `window` and other objects are lacking; notably missing are declarations for
-  vendor-specific things like `mozRequestAnimationFrame` or Web Audio `AudioContext`.
+* <strike>The default declarations for `window` and other objects are lacking; notably missing are declarations for
+  vendor-specific things like `mozRequestAnimationFrame` or Web Audio `AudioContext`.</strike>
+[DefinitelyTyped](https://github.com/borisyankov/DefinitelyTyped) is really great.
 * The compiler is really, really slow.
 
 
@@ -46,6 +47,8 @@ Dependencies
 * [scons](http://www.scons.org/)
 
 Run scons inside the repository, open pong.html
+
+This repo uses git submodules, clone with `git clone --recursive` or run `git submodule update --init --recursive`.
 
 
 License

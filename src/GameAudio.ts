@@ -1,4 +1,4 @@
-///<reference path="AudioContext.d.ts"/>
+///<reference path="../ext/DefinitelyTyped/webaudioapi/waa.d.ts"/>
 /*
  * class GameAudio
  * ===============
@@ -12,15 +12,15 @@ class GameAudio {
     private oscillator: OscillatorNode;
 
     constructor() {
-        if (window.AudioContext || window.webkitAudioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            this.gain = this.audioContext.createGainNode();
+        if (webkitAudioContext || AudioContext) {
+            this.audioContext = new (webkitAudioContext || AudioContext)();
+            this.gain = this.audioContext.createGain();
             this.oscillator = this.audioContext.createOscillator();
             this.gain.connect(this.audioContext.destination);
             this.oscillator.connect(this.gain);
             this.gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime);
             this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
-            this.oscillator.noteOn(this.audioContext.currentTime);
+            this.oscillator.start(this.audioContext.currentTime);
         }
     }
 

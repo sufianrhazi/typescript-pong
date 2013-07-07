@@ -28,5 +28,6 @@ tsSources= [ os.path.join('src', source) for source in [
 
 jsIntermediates = [ source.split('.ts', 1)[0] + '.js' for source in tsSources ]
 
-env.Typescript(tsSources)
+for tsSource in tsSources:
+    env.Typescript(tsSource)
 env.Combine(os.path.join('out', 'pong.min.js'), jsIntermediates)
