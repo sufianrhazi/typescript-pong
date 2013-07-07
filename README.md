@@ -27,9 +27,9 @@ specification](http://www.typescriptlang.org/Content/TypeScript%20Language%20Spe
 * I don't have windows installed, but I had no problem writing typescript.
 * Developing in vim was okay. [syntastic](https://github.com/scrooloose/syntastic) has a typescript plugin which marks
   compiler errors correctly.  There isn't anything that appears to provide auto-complete.
-* <strike>The default declarations for `window` and other objects are lacking; notably missing are declarations for
-  vendor-specific things like `mozRequestAnimationFrame` or Web Audio `AudioContext`.</strike>
-[DefinitelyTyped](https://github.com/borisyankov/DefinitelyTyped) is really great.
+* ~~The default declarations for `window` and other objects are lacking; notably missing are declarations for
+  vendor-specific things like `mozRequestAnimationFrame` or Web Audio `AudioContext`.~~
+  [DefinitelyTyped](https://github.com/borisyankov/DefinitelyTyped) is really great.
 * The compiler is really, really slow.
 
 
