@@ -23,7 +23,7 @@ specification](http://www.typescriptlang.org/Content/TypeScript%20Language%20Spe
     * Enums are great, but they really have me wanting algebraic data types.
     * Better code organization: using interfaces as much as possible leads to more decoupled OOP.
     * Constructor property assignment removes silly boilerplate
-* ~~~Type annotations are optional; I wish you could make them mandatory with a compiler flag.~~~ Typescript 0.9.1 now has a ["no implicit any"](http://blogs.msdn.com/b/typescript/archive/2013/08/06/announcing-0-9-1.aspx) option.
+* ~~Type annotations are optional; I wish you could make them mandatory with a compiler flag.~~ Typescript 0.9.1 now has a ["no implicit any"](http://blogs.msdn.com/b/typescript/archive/2013/08/06/announcing-0-9-1.aspx) option.
 * I don't have windows installed, but I had no problem writing typescript.
 * Developing in vim was okay. [syntastic](https://github.com/scrooloose/syntastic) has a typescript plugin which marks
   compiler errors correctly.  There isn't anything that appears to provide auto-complete.
